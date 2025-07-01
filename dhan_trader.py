@@ -1,95 +1,141 @@
-from dhanhq import dhanhq
-import datetime
+import Dhan_Tradehull as dhan_tradehull 
 
 class DhanTrader:
     def __init__(self, client_id, access_token):
         try:
-            self.dhan = dhanhq(client_id, access_token)
+            #self.dhan = dhanhq(client_id, access_token)   test if not req as tradehull has built in fnc to make this obj.
+
+            # Initialize Dhan_Tradehull with the dhanhq instance
+            self.tradehull = dhan_tradehull.Tradehull(client_id, access_token)
             print("DhanHQ client authenticated successfully.")
+
+            self.client_id = client_id
+            self.access_token = access_token
+
         except Exception as e:
-            print(f"Error authenticating with DhanHQ: {e}")
-            self.dhan = None
-
-    def _get_security_id(self, order_details: dict) -> str:
-        """
-        Finds the security_id for a given instrument based on user inputs.
-        """
-        symbol = order_details['symbol']
-        exchange = order_details['exchange_segment']
-        
-        print(f"\nSearching for security ID for {symbol} in {exchange}...")
-
-        # For Cash segments (NSE, BSE), the first result is usually the correct one.
-        if exchange in ["NSE", "BSE"]:
-            response = self.dhan.get_securities(exchange)
-            for item in response['securities']:
-                if item['symbol'] == symbol and exchange == 'NSE_EQ': # Example for NSE Equity
-                    print(f"Found Security ID: {item['securityId']}")
-                    return item['securityId']
-            return None # If no match found
-
-        # For Derivatives (NFO), we need to filter precisely.
-        elif exchange == "NFO":
-            instrument_type = order_details['instrument_type']
-            expiry_date_str = order_details['expiry_date']
-            expiry_date = datetime.datetime.strptime(expiry_date_str, "%Y-%m-%d").date()
-            
-            # This API call fetches all derivatives for the symbol
-            response = self.dhan.get_derivative_instruments(exchange, symbol)
-            
-            for instrument in response.get('derivativeInstruments', []):
-                # Match instrument type
-                if instrument.get('instrumentType') != instrument_type:
-                    continue
-                
-                # Match expiry date
-                inst_expiry = datetime.datetime.fromtimestamp(instrument.get('expiryDate')).date()
-                if inst_expiry != expiry_date:
-                    continue
-
-                # If it's an option, also match strike and type
-                if instrument_type == 'OPT':
-                    strike = order_details['strike_price']
-                    option_type = order_details['option_type']
-                    if instrument.get('strikePrice') == strike and instrument.get('optionType') == option_type:
-                        print(f"Found Security ID: {instrument['securityId']}")
-                        return instrument['securityId']
-                # If it's a future, we have a match
-                elif instrument_type == 'FUT':
-                    print(f"Found Security ID: {instrument['securityId']}")
-                    return instrument['securityId']
-        
-        return None # Return None if no match is found
+            print(f"Failed authenticating or initializing: {e}")
+            self.tradehull = None # Ensure tradehull is also None if initialization fails
 
     def place_order(self, order_details):
-        if not self.dhan:
-            return {"status": "error", "reason": "DhanHQ client not initialized."}
+        if not self.tradehull: # Check if tradehull is initialized
+            return {
+                    "status": "Failed", 
+                    "reason": "Dhan_Tradehull client not initialized."
+                    }
 
         try:
-            # 1. Get the Security ID first
-            security_id = self._get_security_id(order_details)
-            
-            if not security_id:
-                return {
-                    "status": "error",
-                    "reason": f"Could not find a unique instrument for the details provided: {order_details['symbol']}"
-                }
+            print(f"\nPlacing order for {order_details['symbol']} on {order_details['exchange_segment']}")
 
-            # 2. Place the order using the found security_id
-            print(f"\nPlacing order for Security ID: {security_id}")
-            
-            response = self.dhan.place_order(
-                security_id=security_id,  # CRITICAL CHANGE: Use security_id
-                exchange_segment=order_details['exchange_segment'],
-                transaction_type=order_details['transaction_type'],
-                quantity=order_details['quantity'],
-                order_type=order_details['order_type'],
-                product_type=order_details['product_type'],
-                price=order_details['price'],
-                validity=order_details['validity'],
-                tag='TradingApp' # Optional tag
+            response = self.tradehull.order_placement(
+
+                tradingsymbol   =  order_details['symbol'],
+                
+                exchange        =  order_details['exchange_segment'],
+                
+                quantity        =  order_details['quantity'],
+                
+                price           =  order_details.get('price', 0), # Using .get() with a default for optional parameters
+                
+                trigger_price   =  order_details.get('trigger_price', 0),
+                
+                order_type      =  order_details['order_type'],
+                
+                transaction_type    =  order_details['transaction_type'],
+                
+                trade_type          =  order_details['trade_type'], 
+                
+                disclosed_quantity  =  order_details.get('disclosed_quantity', 0),
+                
+                after_market_order  =  order_details.get('after_market_order', False),
+                
+                validity            =  order_details.get('validity', 'DAY'),
+                
+                amo_time            =  order_details.get('amo_time', 'OPEN'),
+                
+                bo_profit_value     =  order_details.get('bo_profit_value', None),
+                
+                bo_stop_loss_Value  =  order_details.get('bo_stop_loss_Value', None)
             )
-            return response
+
+
+            print(f"\nOrder placement response from Dhan_Tradehull: {response}")
+            
+            # Wraping the response to dic
+            if response :
+                return {
+                        "status": "success",
+                        "orderId": response
+                        } 
+            else :
+                return {
+                        "status": "Failed", 
+                        "reason": response
+                        } 
 
         except Exception as e:
-            return {"status": "error", "reason": str(e)}
+            return {
+                    "status": "Failed", 
+                    "reason": str(e)
+                    }
+        
+    def get_report(self) :
+        # Returns shares report from porfolio in 2 dict s
+        order_details, order_exe_price =  self.tradehull.order_report()
+        print("Order Details : ")
+        for k, v in  order_details.items() :
+            print(f"{k} : {v}")
+        print("Order exe price : ")
+        for k, v in  order_exe_price.items() :
+            print(f"{k} : {v}")
+    
+    def get_status(self, order_id) :
+        # Order ID required param hence default value as none was not set
+        responce = self.tradehull.get_order_status(orderid=order_id)
+        
+        data = responce.get('data', 'N/A')
+        status = responce.get('status', 'Error')
+        rem = responce.get('remarks', 'None') 
+
+        data = data.get('data')
+        # As responce is like {'status': 'failure', 'remarks': 'list index out of range', 'data': {'status': 'success', 'remarks': '', 'data': []}}
+        # i.e. Dic inside Dic
+        print(f"Status : {status} \nRemarks : {rem} \nData : {data}")
+    
+    def get_order_details(self, order_id) :
+        # Order ID required param hence default value as none was not set
+        responce = self.tradehull.get_order_detail(order_id==order_id)
+        data = responce.get('data', 'N/A')
+        status = responce.get('status', 'Error')
+        rem = responce.get('remarks', 'None') 
+
+        data = data.get('data')
+        # As responce is like {'status': 'failure', 'remarks': 'list index out of range', 'data': {'status': 'success', 'remarks': '', 'data': []}}
+        # i.e. Dic inside Dic
+        print(f"Status : {status} \nRemarks : {rem} \nData : {data}")
+
+
+    def get_holds(self) :
+        # returns holdings of the day
+        responce = self.tradehull.get_holdings()
+        for k, v in responce.items() :
+            print(f"{k} : {v}")
+    
+    def cancel_orders(self) :
+        # cancels all orders of the dat
+        print(self.get_holds())
+        sure = input("\n Are you sure to cancel all above orders (y/n) : ")
+        if sure.lower() == 'y' :
+            responce = self.tradehull.cancel_all_orders()
+            for k, v in responce.items() :
+                print(f"{k} : {v}")
+
+        
+    def cancel_specific_order(self, order_id) :
+        # Cancels specific order
+        responce =   self.tradehull.cancel_order(OrderID=order_id)
+        print(f"responce : {responce}")
+        
+    
+    def get_balance(self) :
+        amt = self.tradehull.get_balance()
+        print(f"\n Client ID : {self.client_id} \n Balance : {amt}")

@@ -57,8 +57,6 @@ class DhanTrader:
                 bo_stop_loss_Value  =  order_details.get('bo_stop_loss_Value', None)
             )
 
-
-            print(f"\nOrder placement response from Dhan_Tradehull: {response}")
             
             # Wraping the response to dic
             if response :
@@ -79,38 +77,41 @@ class DhanTrader:
                     }
         
     def get_report(self) :
-        # Returns shares report from porfolio in 2 dict s
+        # order_report() returns shares report from porfolio in 2 dict s
         order_details, order_exe_price =  self.tradehull.order_report()
+
         print("Order Details : ")
         for k, v in  order_details.items() :
             print(f"{k} : {v}")
+
         print("Order exe price : ")
         for k, v in  order_exe_price.items() :
             print(f"{k} : {v}")
     
     def get_status(self, order_id) :
-        # Order ID required param hence default value as none was not set
-        responce = self.tradehull.get_order_status(orderid=order_id)
         
+        responce = self.tradehull.get_order_status(orderid=order_id)
+        responce = responce['data']
+        # As responce is like {'status': 'failure', 'remarks': 'list index out of range', 'data': {'status': 'success', 'remarks': '', 'data': []}}
+        # i.e. Dic inside Dic
+
         data = responce.get('data', 'N/A')
         status = responce.get('status', 'Error')
         rem = responce.get('remarks', 'None') 
-
-        data = data.get('data')
-        # As responce is like {'status': 'failure', 'remarks': 'list index out of range', 'data': {'status': 'success', 'remarks': '', 'data': []}}
-        # i.e. Dic inside Dic
+             
         print(f"Status : {status} \nRemarks : {rem} \nData : {data}")
     
     def get_order_details(self, order_id) :
-        # Order ID required param hence default value as none was not set
+        
         responce = self.tradehull.get_order_detail(order_id==order_id)
+        # As responce is like {'status': 'failure', 'remarks': 'list index out of range', 'data': {'status': 'success', 'remarks': '', 'data': []}}
+        # i.e. Dic inside Dic
+        responce = responce['data']
+
         data = responce.get('data', 'N/A')
         status = responce.get('status', 'Error')
         rem = responce.get('remarks', 'None') 
-
-        data = data.get('data')
-        # As responce is like {'status': 'failure', 'remarks': 'list index out of range', 'data': {'status': 'success', 'remarks': '', 'data': []}}
-        # i.e. Dic inside Dic
+               
         print(f"Status : {status} \nRemarks : {rem} \nData : {data}")
 
 
@@ -118,7 +119,10 @@ class DhanTrader:
         # returns holdings of the day
         responce = self.tradehull.get_holdings()
         for k, v in responce.items() :
-            print(f"{k} : {v}")
+            if  "No holdings available" in f" {v} " :
+                print("Note : You Have No Holdings Available")
+                break
+            print(f"\n{k} : {v}")
     
     def cancel_orders(self) :
         # cancels all orders of the dat

@@ -1,7 +1,7 @@
-import config
-from input_handler import get_order_inputs
-from dhan_trader import DhanTrader
-from order_logger import log_order_to_csv
+from Dhan_CLI.config import *
+from Dhan_CLI.dhan_trader import *
+from Dhan_CLI.input_handler import *
+from Dhan_CLI.order_logger import *
 import sys
 
 def authenticate_user() :
@@ -9,7 +9,7 @@ def authenticate_user() :
         global trader # making trader accessiblr to all functions
 
         #  Initializing the trader with credentials from config
-        trader = DhanTrader(client_id=config.CLIENT_ID, access_token=config.ACCESS_TOKEN)
+        trader = DhanTrader(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
         
         if not trader.tradehull :
             print("Exiting application due to authentication failure.")

@@ -109,4 +109,10 @@ The tool will place the order via Dhan API and log successful transactions in a 
 ## License
 
 This project is under internal evaluation as part of an internship program and does not currently use an open-source license.
+
+---
+
+### ⚠️ Disclaimer: 
+Use this tool at your own risk. The developer is not responsible for any financial loss, errors, or damages caused by using this code. No guarantees are provided. This project is for educational purposes only.
+
 ---
